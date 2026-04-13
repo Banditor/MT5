@@ -36,7 +36,11 @@
 
   async function init() {
     try {
-      const baseURL = "./vendor/ffmpeg";
+      const loadSources = [
+        "./vendor/ffmpeg",
+        "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd",
+        "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd"
+      ];
 
       ffmpeg.on("progress", ({ progress }) => {
         const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
@@ -44,21 +48,38 @@
         progressText.textContent = `${pct}%`;
       });
 
-      const loadPromise = ffmpeg.load({
-        coreURL: `${baseURL}/ffmpeg-core.js`,
-        wasmURL: `${baseURL}/ffmpeg-core.wasm`
-      });
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error("FFmpeg core load timeout")), 45000);
-      });
-      await Promise.race([loadPromise, timeoutPromise]);
+      let loaded = false;
+      let lastErr = null;
+
+      for (let i = 0; i < loadSources.length && !loaded; i += 1) {
+        const baseURL = loadSources[i];
+        const bust = `v=${Date.now()}_${i}`;
+        setStatus(`Loading converter core... (attempt ${i + 1}/${loadSources.length})`);
+        try {
+          const loadPromise = ffmpeg.load({
+            coreURL: `${baseURL}/ffmpeg-core.js?${bust}`,
+            wasmURL: `${baseURL}/ffmpeg-core.wasm?${bust}`
+          });
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error("FFmpeg core load timeout")), 180000);
+          });
+          await Promise.race([loadPromise, timeoutPromise]);
+          loaded = true;
+        } catch (err) {
+          lastErr = err;
+        }
+      }
+
+      if (!loaded) {
+        throw lastErr || new Error("Unable to load ffmpeg core");
+      }
 
       isReady = true;
       setStatus("Converter is ready.", "ok");
       convertBtn.disabled = !selectedFile;
     } catch (err) {
       console.error(err);
-      setStatus("Failed to load ffmpeg core.", "error");
+      setStatus("Failed to load ffmpeg core. Try refresh once more.", "error");
     }
   }
 
