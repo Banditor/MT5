@@ -44,10 +44,14 @@
         progressText.textContent = `${pct}%`;
       });
 
-      await ffmpeg.load({
+      const loadPromise = ffmpeg.load({
         coreURL: `${baseURL}/ffmpeg-core.js`,
         wasmURL: `${baseURL}/ffmpeg-core.wasm`
       });
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error("FFmpeg core load timeout")), 45000);
+      });
+      await Promise.race([loadPromise, timeoutPromise]);
 
       isReady = true;
       setStatus("Converter is ready.", "ok");
