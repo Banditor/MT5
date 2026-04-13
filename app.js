@@ -1,6 +1,6 @@
 (() => {
   const { FFmpeg } = FFmpegWASM;
-  const { fetchFile, toBlobURL } = FFmpegUtil;
+  const { fetchFile } = FFmpegUtil;
 
   const fileInput = document.getElementById("fileInput");
   const dropzone = document.getElementById("dropzone");
@@ -36,10 +36,7 @@
 
   async function init() {
     try {
-      const baseURLs = [
-        "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd",
-        "https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd"
-      ];
+      const baseURL = "./vendor/ffmpeg";
 
       ffmpeg.on("progress", ({ progress }) => {
         const pct = Math.max(0, Math.min(100, Math.round(progress * 100)));
@@ -47,33 +44,17 @@
         progressText.textContent = `${pct}%`;
       });
 
-      let loaded = false;
-      let lastErr = null;
-
-      for (const baseURL of baseURLs) {
-        try {
-          await ffmpeg.load({
-            coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
-            wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
-            workerURL: await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, "text/javascript")
-          });
-          loaded = true;
-          break;
-        } catch (err) {
-          lastErr = err;
-        }
-      }
-
-      if (!loaded) {
-        throw lastErr || new Error("Unable to load ffmpeg core files");
-      }
+      await ffmpeg.load({
+        coreURL: `${baseURL}/ffmpeg-core.js`,
+        wasmURL: `${baseURL}/ffmpeg-core.wasm`
+      });
 
       isReady = true;
       setStatus("Converter is ready.", "ok");
       convertBtn.disabled = !selectedFile;
     } catch (err) {
       console.error(err);
-      setStatus("Failed to load ffmpeg core. Refresh and disable ad-block/VPN if active.", "error");
+      setStatus("Failed to load ffmpeg core.", "error");
     }
   }
 
